@@ -1,0 +1,20 @@
+FROM docker.io/modelzai/vchord-cnpg:17-v0.2.2
+USER root
+COPY postgresql-17-vchord_0.0.0-1_amd64.deb /tmp/vchord.deb
+
+RUN dpkg -i /tmp/vchord.deb; 
+
+RUN wget https://github.com/tensorchord/VectorChord-bm25/releases/download/0.1.1/postgresql-17-vchord-bm25_0.1.1-1_amd64.deb -O /tmp/vchord-bm25.deb; \
+    dpkg -i /tmp/vchord-bm25.deb; \
+    rm -rf /tmp/*.deb
+
+RUN cp /usr/share/postgresql/17/extension/* /var/lib/postgresql/data/tensorchord/extension/
+RUN cp /usr/lib/postgresql/17/lib/* /var/lib/postgresql/data/tensorchord/17/lib/
+
+RUN set -eux; \
+    cp -r $(pg_config --pkglibdir)/* /tmp/pg_pkglibdir; \
+    cp -r $(pg_config --sharedir)/* /tmp/pg_sharedir
+
+RUN chown -R postgres:postgres /tmp
+USER 26
+ENV PATH $PATH:/usr/lib/postgresql/17/bin

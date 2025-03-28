@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# BEIR dataset
+datasets/
+
+# Resutls
+*.json
+results/
+
+*.log
+main.py
+docker/*.deb
+.ruff_cache/
+vidore/
+modal/README.md
