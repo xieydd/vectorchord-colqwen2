@@ -66,70 +66,28 @@ if __name__ == "__main__":
     queries: list[Image] = vr.select_by(Image.partial_init(dataset="vidore/arxivqa_test_subsampled"), limit=100)
     # Measure latency and throughput for evaluation
     start_time = time.time()
-    # count = 2229
-    # lists = 2500
-    # probes = 10
-    # max_maxsim_tuples = 1000
-    # maxsim_threshold = int((2 * count * 768 / lists) * probes)
-    # with vr.client.get_cursor() as cursor:
-    #     cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
+    count = 2229
+    lists = 2500
+    probes = 50
+    max_maxsim_tuples = 1000
+    maxsim_threshold = int((2 * count * 768 / lists) * probes)
+    with vr.client.get_cursor() as cursor:
+        cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
 
-    # res: list[Evaluation] = evaluate(queries, probes=probes)
-    # end_time = time.time()
+    res: list[Evaluation] = evaluate(queries, probes=probes, max_maxsim_tuples=max_maxsim_tuples)
+    end_time = time.time()
 
-    # # Calculate metrics
-    # total_time = end_time - start_time
-    # avg_latency = total_time / len(queries)  # Average latency per query (seconds)
-    # throughput = len(queries) / total_time   # Throughput (queries per second)
+    # Calculate metrics
+    total_time = end_time - start_time
+    avg_latency = total_time / len(queries)  # Average latency per query (seconds)
+    throughput = len(queries) / total_time   # Throughput (queries per second)
 
-    # print("probes", probes)
-    # print("maxsim_threshold", maxsim_threshold)
-    # print("max_maxsim_tuples", max_maxsim_tuples)
-    # print("ndcg@10", sum(r.ndcg for r in res) / len(res))
-    # print("recall@10", sum(r.recall for r in res) / len(res))
-    # print(f"Total execution time: {total_time:.4f} seconds")
-    # print(f"Average latency: {avg_latency*1000:.4f} ms/query")
-    # print(f"Throughput: {throughput:.2f} queries/second\n")
+    print("probes", probes)
+    print("maxsim_threshold", maxsim_threshold)
+    print("max_maxsim_tuples", max_maxsim_tuples)
+    print("ndcg@10", sum(r.ndcg for r in res) / len(res))
+    print("recall@10", sum(r.recall for r in res) / len(res))
+    print(f"Total execution time: {total_time:.4f} seconds")
+    print(f"Average latency: {avg_latency*1000:.4f} ms/query")
+    print(f"Throughput: {throughput:.2f} queries/second\n")
     # vr.clear_storage()
-
-
-    params = [5, 10, 20, 50, 100]
-    for param in params:
-        count = 2229
-        lists = 2500
-        probes = 50
-        max_maxsim_tuples = 100
-        max_maxsim_tuples = param * max_maxsim_tuples
-        maxsim_threshold = int((2 * 2229 * 768 / 2500) * probes)
-        with vr.client.get_cursor() as cursor:
-            # index_name = "colpali_image_query_embedding_multivec_idx"
-            # table = "colpali_image" 
-            # column = "image_embedding"
-            # lists = 2500
-            # config = f"build.internal.lists = [{lists}]"
-            # cursor.execute(f"DROP INDEX IF exists {index_name}")
-            # cursor.execute(
-            #     f"CREATE INDEX IF NOT EXISTS {index_name} ON "
-            #     f"{table} USING vchordrq ({column} vector_maxsim_ops) WITH "
-            #     f"(options = $${config}$$);")
-            cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
-
-        res: list[Evaluation] = evaluate(queries, probes=probes, max_maxsim_tuples=max_maxsim_tuples)
-        end_time = time.time()
-
-        # Calculate metrics
-        total_time = end_time - start_time
-        avg_latency = total_time / len(queries)  # Average latency per query (seconds)
-        throughput = len(queries) / total_time   # Throughput (queries per second)
-
-        print("param", param)
-        print("probes", probes)
-        print("maxsim_threshold", maxsim_threshold)
-        print("max_maxsim_tuples", max_maxsim_tuples)
-        print("ndcg@10", sum(r.ndcg for r in res) / len(res))
-        print("recall@10", sum(r.recall for r in res) / len(res))
-        print(f"Total execution time: {total_time:.4f} seconds")
-        print(f"Average latency: {avg_latency*1000:.4f} ms/query")
-        print(f"Throughput: {throughput:.2f} queries/second\n")
-    # vr.clear_storage()
-
