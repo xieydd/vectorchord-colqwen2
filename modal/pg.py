@@ -1,6 +1,6 @@
 from vechord.registry import VechordRegistry
-from vechord.spec import PrimaryKeyAutoIncrease, Table, Vector
-from typing import List, Optional
+from vechord.spec import PrimaryKeyAutoIncrease, Table, Vector, MultiVectorIndex, IndexColumn
+from typing import List, Optional, Annotated
 from pathlib import Path
 from typing import Iterator
 from vechord.evaluate import BaseEvaluator
@@ -10,10 +10,11 @@ import time
 
 MultiVector = List[Vector[128]]
 
+lists = 2500
 class Image(Table, kw_only=True):
     uid: Optional[PrimaryKeyAutoIncrease] = None
-    image_embedding: MultiVector 
-    query_embedding: MultiVector
+    image_embedding: Annotated[MultiVector, MultiVectorIndex(lists=lists)] 
+    query_embedding: Annotated[MultiVector, MultiVectorIndex(lists=lists)]
     query: str = None
     dataset: Optional[str] = None
     dataset_id: Optional[int] = None
@@ -45,12 +46,12 @@ class Evaluation(msgspec.Struct):
     recall: float
 
 TOP_K = 10
-def evaluate(queries: list[Image]) -> list[Evaluation]:
+def evaluate(queries: list[Image], probes: int, max_maxsim_tuples: int) -> list[Evaluation]:
     result  = []
     for query in queries:
         vector = query.query_embedding
         docs: list[Image] = vr.search_by_multivec(
-            Image, vector, topk=TOP_K
+            Image, vector, topk=TOP_K, probe=probes, max_maxsim_tuples=max_maxsim_tuples
         )
         score = BaseEvaluator.evaluate_one(query.uid, [doc.uid for doc in docs])
         result.append(Evaluation(
@@ -65,32 +66,70 @@ if __name__ == "__main__":
     queries: list[Image] = vr.select_by(Image.partial_init(dataset="vidore/arxivqa_test_subsampled"), limit=100)
     # Measure latency and throughput for evaluation
     start_time = time.time()
-    maxsim_threshold = 1540000
-    with vr.client.get_cursor() as cursor:
-        index_name = "colpali_image_query_embedding_multivec_idx"
-        table = "colpali_image" 
-        column = "image_embedding"
+    # count = 2229
+    # lists = 2500
+    # probes = 10
+    # max_maxsim_tuples = 1000
+    # maxsim_threshold = int((2 * count * 768 / lists) * probes)
+    # with vr.client.get_cursor() as cursor:
+    #     cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
+
+    # res: list[Evaluation] = evaluate(queries, probes=probes)
+    # end_time = time.time()
+
+    # # Calculate metrics
+    # total_time = end_time - start_time
+    # avg_latency = total_time / len(queries)  # Average latency per query (seconds)
+    # throughput = len(queries) / total_time   # Throughput (queries per second)
+
+    # print("probes", probes)
+    # print("maxsim_threshold", maxsim_threshold)
+    # print("max_maxsim_tuples", max_maxsim_tuples)
+    # print("ndcg@10", sum(r.ndcg for r in res) / len(res))
+    # print("recall@10", sum(r.recall for r in res) / len(res))
+    # print(f"Total execution time: {total_time:.4f} seconds")
+    # print(f"Average latency: {avg_latency*1000:.4f} ms/query")
+    # print(f"Throughput: {throughput:.2f} queries/second\n")
+    # vr.clear_storage()
+
+
+    params = [5, 10, 20, 50, 100]
+    for param in params:
+        count = 2229
         lists = 2500
-        config = f"build.internal.lists = [{lists}]"
-        cursor.execute(f"DROP INDEX IF exists {index_name}")
-        cursor.execute(
-            f"CREATE INDEX IF NOT EXISTS {index_name} ON "
-            f"{table} USING vchordrq ({column} vector_maxsim_ops) WITH "
-            f"(options = $${config}$$);")
-        cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
+        probes = 50
+        max_maxsim_tuples = 100
+        max_maxsim_tuples = param * max_maxsim_tuples
+        maxsim_threshold = int((2 * 2229 * 768 / 2500) * probes)
+        with vr.client.get_cursor() as cursor:
+            # index_name = "colpali_image_query_embedding_multivec_idx"
+            # table = "colpali_image" 
+            # column = "image_embedding"
+            # lists = 2500
+            # config = f"build.internal.lists = [{lists}]"
+            # cursor.execute(f"DROP INDEX IF exists {index_name}")
+            # cursor.execute(
+            #     f"CREATE INDEX IF NOT EXISTS {index_name} ON "
+            #     f"{table} USING vchordrq ({column} vector_maxsim_ops) WITH "
+            #     f"(options = $${config}$$);")
+            cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
 
-    res: list[Evaluation] = evaluate(queries)
-    end_time = time.time()
+        res: list[Evaluation] = evaluate(queries, probes=probes, max_maxsim_tuples=max_maxsim_tuples)
+        end_time = time.time()
 
-    # Calculate metrics
-    total_time = end_time - start_time
-    avg_latency = total_time / len(queries)  # Average latency per query (seconds)
-    throughput = len(queries) / total_time   # Throughput (queries per second)
+        # Calculate metrics
+        total_time = end_time - start_time
+        avg_latency = total_time / len(queries)  # Average latency per query (seconds)
+        throughput = len(queries) / total_time   # Throughput (queries per second)
 
-    print("ndcg", sum(r.ndcg for r in res) / len(res))
-    print("recall@10", sum(r.recall for r in res) / len(res))
-    print(f"Total execution time: {total_time:.4f} seconds")
-    print(f"Average latency: {avg_latency*1000:.4f} ms/query")
-    print(f"Throughput: {throughput:.2f} queries/second")
+        print("param", param)
+        print("probes", probes)
+        print("maxsim_threshold", maxsim_threshold)
+        print("max_maxsim_tuples", max_maxsim_tuples)
+        print("ndcg@10", sum(r.ndcg for r in res) / len(res))
+        print("recall@10", sum(r.recall for r in res) / len(res))
+        print(f"Total execution time: {total_time:.4f} seconds")
+        print(f"Average latency: {avg_latency*1000:.4f} ms/query")
+        print(f"Throughput: {throughput:.2f} queries/second\n")
     # vr.clear_storage()
 
