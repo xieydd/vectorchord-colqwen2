@@ -46,12 +46,12 @@ class Evaluation(msgspec.Struct):
     recall: float
 
 TOP_K = 10
-def evaluate(queries: list[Image], probes: int, max_maxsim_tuples: int) -> list[Evaluation]:
+def evaluate(queries: list[Image], probes: int, maxsim_refine: int) -> list[Evaluation]:
     result  = []
     for query in queries:
         vector = query.query_embedding
         docs: list[Image] = vr.search_by_multivec(
-            Image, vector, topk=TOP_K, probe=probes, max_maxsim_tuples=max_maxsim_tuples
+            Image, vector, topk=TOP_K, probe=probes, maxsim_refine=maxsim_refine
         )
         score = BaseEvaluator.evaluate_one(query.uid, [doc.uid for doc in docs])
         result.append(Evaluation(
@@ -62,19 +62,21 @@ def evaluate(queries: list[Image], probes: int, max_maxsim_tuples: int) -> list[
     return result
 
 if __name__ == "__main__":
-    # load_image("/home/xieyuandong/pgvecto.rs-cloud/poc/hybrid-search/vectorchord-colpali/modal/vidore")
+    load_image("/home/xieyuandong/pgvecto.rs-cloud/poc/hybrid-search/vectorchord-colpali/modal/vidore")
     queries: list[Image] = vr.select_by(Image.partial_init(dataset="vidore/arxivqa_test_subsampled"), limit=100)
     # Measure latency and throughput for evaluation
     start_time = time.time()
     count = 2229
     lists = 2500
-    probes = 50
-    max_maxsim_tuples = 1000
-    maxsim_threshold = int((2 * count * 768 / lists) * probes)
+    probes = 16
+    maxsim_refine = 50
+    epsilon = 0.1
+    maxsim_threshold = 2000
     with vr.client.get_cursor() as cursor:
         cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
+        cursor.execute(f"SET vchordrq.epsilon={epsilon}")
 
-    res: list[Evaluation] = evaluate(queries, probes=probes, max_maxsim_tuples=max_maxsim_tuples)
+    res: list[Evaluation] = evaluate(queries, probes=probes, maxsim_refine=maxsim_refine)
     end_time = time.time()
 
     # Calculate metrics
@@ -84,7 +86,7 @@ if __name__ == "__main__":
 
     print("probes", probes)
     print("maxsim_threshold", maxsim_threshold)
-    print("max_maxsim_tuples", max_maxsim_tuples)
+    print("epsilon", epsilon)
     print("ndcg@10", sum(r.ndcg for r in res) / len(res))
     print("recall@10", sum(r.recall for r in res) / len(res))
     print(f"Total execution time: {total_time:.4f} seconds")
