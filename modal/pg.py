@@ -69,9 +69,9 @@ if __name__ == "__main__":
     count = 2229
     lists = 2500
     probes = 16
-    maxsim_refine = 50
-    epsilon = 0.1
-    maxsim_threshold = 2000
+    maxsim_refine = 10
+    epsilon = 1.0
+    maxsim_threshold = 20000
     with vr.client.get_cursor() as cursor:
         cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
         cursor.execute(f"SET vchordrq.epsilon={epsilon}")
@@ -87,6 +87,7 @@ if __name__ == "__main__":
     print("probes", probes)
     print("maxsim_threshold", maxsim_threshold)
     print("epsilon", epsilon)
+    print("maxsim_refine", maxsim_refine)
     print("ndcg@10", sum(r.ndcg for r in res) / len(res))
     print("recall@10", sum(r.recall for r in res) / len(res))
     print(f"Total execution time: {total_time:.4f} seconds")
