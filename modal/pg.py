@@ -62,7 +62,7 @@ def evaluate(queries: list[Image], probes: int, maxsim_refine: int) -> list[Eval
     return result
 
 if __name__ == "__main__":
-    load_image("/home/xieyuandong/pgvecto.rs-cloud/poc/hybrid-search/vectorchord-colpali/modal/vidore")
+    # load_image("/home/xieyuandong/pgvecto.rs-cloud/poc/hybrid-search/vectorchord-colpali/modal/vidore")
     queries: list[Image] = vr.select_by(Image.partial_init(dataset="vidore/arxivqa_test_subsampled"), limit=100)
     # Measure latency and throughput for evaluation
     start_time = time.time()
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     probes = 16
     maxsim_refine = 10
     epsilon = 1.0
-    maxsim_threshold = 20000
+    maxsim_threshold = 2000
     with vr.client.get_cursor() as cursor:
         cursor.execute(f"SET vchordrq.maxsim_threshold={maxsim_threshold}")
         cursor.execute(f"SET vchordrq.epsilon={epsilon}")
